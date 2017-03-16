@@ -21,7 +21,10 @@
  *
  */
 
+import asu.patch.builder.svn.CommitEventHandler;
 import asu.patch.builder.svn.SVNUtils;
+import asu.patch.builder.svn.UpdateEventHandler;
+import asu.patch.builder.svn.WCEventHandler;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -82,6 +85,26 @@ public class SVNTester {
     SVNURL importToURL = url.appendPath(importDir, false);
     
     SVNClientManager ourClientManager = SVNUtils.create(name, password);
+    CommitEventHandler myCommitEventHandler = new CommitEventHandler();
+    UpdateEventHandler myUpdateEventHandler = new UpdateEventHandler();
+    WCEventHandler myWCEventHandler = new WCEventHandler();
+    /*
+     * Sets a custom event handler for operations of an SVNCommitClient
+     * instance
+     */
+    ourClientManager.getCommitClient().setEventHandler(myCommitEventHandler);
+
+    /*
+     * Sets a custom event handler for operations of an SVNUpdateClient
+     * instance
+     */
+    ourClientManager.getUpdateClient().setEventHandler(myUpdateEventHandler);
+
+    /*
+     * Sets a custom event handler for operations of an SVNWCClient
+     * instance
+     */
+    ourClientManager.getWCClient().setEventHandler(myWCEventHandler);
 
     long committedRevision = makeSVNDirectory(url, ourClientManager);
     committedRevision = importDirectoryToSVN(importDir, importFile, importFileText, importToURL,
@@ -300,7 +323,7 @@ public class SVNTester {
    * in the manner of 'svn info -R' command
    */
     try {
-      SVNUtils.showInfo(ourClientManager, wcDir, SVNRevision.WORKING, true);
+      SVNUtils.showInfo(ourClientManager, wcDir, null, SVNRevision.WORKING, true);
     } catch (SVNException svne) {
       error("error while recursively getting info for the working copy at'"
           + wcDir.getAbsolutePath() + "'", svne);

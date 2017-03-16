@@ -23,6 +23,7 @@ package asu.patch.builder.svn;
 
 import java.io.File;
 import org.tmatesoft.svn.core.*;
+import org.tmatesoft.svn.core.auth.ISVNAuthenticationManager;
 import org.tmatesoft.svn.core.internal.io.dav.DAVRepositoryFactory;
 import org.tmatesoft.svn.core.internal.io.fs.FSRepositoryFactory;
 import org.tmatesoft.svn.core.internal.io.svn.SVNRepositoryFactoryImpl;
@@ -33,25 +34,21 @@ import org.tmatesoft.svn.core.wc.*;
  * Created by suk on 2017/3/15.
  */
 public class SVNUtils {
+  private static boolean initial = false;
 
-  private static final CommitEventHandler myCommitEventHandler;
-  private static final UpdateEventHandler myUpdateEventHandler;
-  private static final WCEventHandler myWCEventHandler;
   static {
     setupLibrary();
 
-    myCommitEventHandler = new CommitEventHandler();
-
-    myUpdateEventHandler = new UpdateEventHandler();
-
-    myWCEventHandler = new WCEventHandler();
   }
 
   /*
    * Initializes the library to work with a repository via
    * different protocols.
    */
-  private static void setupLibrary() {
+  synchronized public static void setupLibrary() {
+    if (initial) {
+      return;
+    }
     /*
      * For using over http:// and https://
      */
@@ -65,8 +62,9 @@ public class SVNUtils {
      * For using over file:///
      */
     FSRepositoryFactory.setup();
-  }
 
+    initial =  true;
+  }
   public static SVNClientManager create(String username, String password) {
     /*
      * Creates a default run-time configuration options driver. Default options
@@ -83,25 +81,24 @@ public class SVNUtils {
      */
     DefaultSVNOptions options = SVNWCUtil.createDefaultOptions(true);
     SVNClientManager ourClientManager = SVNClientManager.newInstance(options, username, password);
-
+    return ourClientManager;
+  }
+  public static SVNClientManager create(ISVNAuthenticationManager authManager) {
     /*
-     * Sets a custom event handler for operations of an SVNCommitClient
-     * instance
+     * Creates a default run-time configuration options driver. Default options
+     * created in this way use the Subversion run-time configuration area (for
+     * instance, on a Windows platform it can be found in the '%APPDATA%\Subversion'
+     * directory).
+     *
+     * readonly = true - not to save  any configuration changes that can be done
+     * during the program run to a config file (config settings will only
+     * be read to initialize; to enable changes the readonly flag should be set
+     * to false).
+     *
+     * SVNWCUtil is a utility class that creates a default options driver.
      */
-    ourClientManager.getCommitClient().setEventHandler(myCommitEventHandler);
-
-    /*
-     * Sets a custom event handler for operations of an SVNUpdateClient
-     * instance
-     */
-    ourClientManager.getUpdateClient().setEventHandler(myUpdateEventHandler);
-
-    /*
-     * Sets a custom event handler for operations of an SVNWCClient
-     * instance
-     */
-    ourClientManager.getWCClient().setEventHandler(myWCEventHandler);
-
+    DefaultSVNOptions options = SVNWCUtil.createDefaultOptions(true);
+    SVNClientManager ourClientManager = SVNClientManager.newInstance(options, authManager);
     return ourClientManager;
   }
 
@@ -168,16 +165,44 @@ public class SVNUtils {
    */
   public static void showInfo(SVNClientManager ourClientManager,
                               File wcPath,
+                              SVNRevision pegRevision,
                               SVNRevision revision,
                               boolean isRecursive) throws SVNException {
     /*
      * InfoHandler displays information for each entry in the console (in the manner of
      * the native Subversion command line client)
      */
-    ourClientManager.getWCClient().doInfo(wcPath, SVNRevision.UNDEFINED, revision,
+    if (pegRevision == null) {
+      pegRevision = SVNRevision.UNDEFINED;
+    }
+    if (revision == null) {
+      revision = SVNRevision.HEAD;
+    }
+    ourClientManager.getWCClient().doInfo(wcPath,  pegRevision, revision,
         SVNDepth.getInfinityOrEmptyDepth(isRecursive), null, new InfoHandler());
   }
-
+  /**
+   * Collects information on local path(s). Like 'svn info (-R)' command.
+   * It's done by invoking
+   */
+  public static void showInfo(SVNClientManager ourClientManager,
+                              SVNURL url,
+                              SVNRevision pegRevision,
+                              SVNRevision revision,
+                              boolean isRecursive) throws SVNException {
+    /*
+     * InfoHandler displays information for each entry in the console (in the manner of
+     * the native Subversion command line client)
+     */
+    if (pegRevision == null) {
+      pegRevision = SVNRevision.UNDEFINED;
+    }
+    if (revision == null) {
+      revision = SVNRevision.HEAD;
+    }
+    ourClientManager.getWCClient().doInfo(url, pegRevision, revision,
+        SVNDepth.getInfinityOrEmptyDepth(isRecursive), new InfoHandler());
+  }
   /**
    * Puts directories and files under version control scheduling them for addition
    * to a repository. They will be added in a next commit. Like 'svn add PATH'
