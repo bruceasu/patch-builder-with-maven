@@ -20,31 +20,13 @@
             <fileMode>0664</fileMode>
         </file>
         <file>
-            <source>${project.basedir}/sh/launcher.sh</source>
+            <source>${project.basedir}/assembly/winutils.exe</source>
             <outputDirectory>bin/</outputDirectory>
             <fileMode>0744</fileMode>
             <filtered>true</filtered>
         </file>
         <file>
-            <source>${project.basedir}/sh/config.sh</source>
-            <outputDirectory>bin/</outputDirectory>
-            <fileMode>0644</fileMode>
-            <filtered>true</filtered>
-        </file>
-        <file>
-            <source>${project.basedir}/sh/updater.sh</source>
-            <outputDirectory>/</outputDirectory>
-            <fileMode>0644</fileMode>
-            <filtered>true</filtered>
-        </file>
-        <file>
             <source>${project.basedir}/docs/change_log.txt</source>
-            <outputDirectory>/</outputDirectory>
-            <fileMode>0644</fileMode>
-            <filtered>true</filtered>
-        </file>
-        <file>
-            <source>${project.basedir}/docs/update-${project.artifactId}-${project.version}.txt</source>
             <outputDirectory>/</outputDirectory>
             <fileMode>0644</fileMode>
             <filtered>true</filtered>

@@ -100,19 +100,12 @@
     <resources>
       <resource>
         <directory>${basedir}/src/main/resources</directory>
-        <!--  <includes>
+        <includes>
          <include>**/*test*.*</include>
          <include>**/*.json</include>
          <include>**/*.xml</include>
          <include>**/*.properties</include>
-       </includes> -->
-        <excludes>
-          <exclude>**/*.txt</exclude>
-          <exclude>**/*test*.*</exclude>
-          <exclude>**/*.json</exclude>
-          <exclude>**/*.xml</exclude>
-          <exclude>**/*.properties</exclude>
-        </excludes>
+       </includes>
       </resource>
     </resources>
     <plugins>
@@ -221,6 +214,13 @@
               </Main-Verticle>
             </manifestEntries>
           </archive>
+          <excludes>
+            <exclude>**/*.txt</exclude>
+            <exclude>**/*test*.*</exclude>
+            <exclude>**/*.json</exclude>
+            <exclude>**/*.xml</exclude>
+            <exclude>**/*.properties</exclude>
+          </excludes>
         </configuration>
       </plugin>
       <plugin>
