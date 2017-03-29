@@ -21,6 +21,8 @@
  */
 package asu.patch.builder.svn;
 
+import static org.tmatesoft.svn.core.internal.wc2.SvnRepositoryAccess.UrlInfo.pegRevision;
+
 import java.io.File;
 import org.tmatesoft.svn.core.*;
 import org.tmatesoft.svn.core.auth.ISVNAuthenticationManager;
@@ -157,6 +159,15 @@ public class SVNUtils {
      */
     return updateClient.doCheckout(url, destPath, revision, revision,
         SVNDepth.fromRecurse(isRecursive), false);
+  }
+
+  public static long export(SVNClientManager ourClientManager,
+                            SVNURL url,
+                            SVNRevision revision,
+                            File destPath) throws SVNException {
+    SVNUpdateClient updateClient = ourClientManager.getUpdateClient();
+    return updateClient.doExport(url, destPath, revision, revision, null, true,
+        SVNDepth.fromRecurse(true));
   }
 
   /**
