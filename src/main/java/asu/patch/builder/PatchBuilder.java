@@ -22,24 +22,28 @@
 
 package asu.patch.builder;
 
+import static asu.patch.builder.util.Strings.join;
+
 import asu.patch.builder.svn.SVNUtils;
+import asu.patch.builder.task.*;
 import asu.patch.builder.util.Shell;
+import java.awt.*;
+import java.io.Console;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
-import org.apache.log4j.PropertyConfigurator;
-import org.nutz.ioc.impl.PropertiesProxy;
+import javax.swing.*;
 import org.nutz.lang.Files;
 import org.nutz.lang.Lang;
+import org.nutz.lang.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.wc.SVNClientManager;
+import org.tmatesoft.svn.core.wc.SVNRevision;
 
 /**
  * ${document}
@@ -51,19 +55,15 @@ import org.tmatesoft.svn.core.wc.SVNClientManager;
  */
 public class PatchBuilder {
   private static final Logger LOGGER = LoggerFactory.getLogger(PatchBuilder.class);
-  private static final PropertiesProxy pp = new PropertiesProxy("D:\\workspaces\\patch-builder-with-maven\\src\\main\\resources");
+
   public static void main(String[] args) throws SVNException, IOException {
-    PropertyConfigurator.configure(pp.get("log4j.file"));
-    String home = "D:\\workspaces\\patch-builder-with-maven\\assembly";
+    ApplicationConfig config = ApplicationConfig.getInstance();
+    // PropertyConfigurator.configure("D:/workspaces/patch-builder-with-maven/src/main/resources/log4j.properties");
+    String home = config.getAppHome();
+    LOGGER.info("home = " + home);
     System.setProperty("my.home.dir", home);
-    String svn = "file:///d:/tmp/test";
-    String revisionStart = "582";
-    String revisionEnd = "663";
-    String workspace = "d:/tmp/svn-test";
-    File allCodeDir = new File(workspace, "all-code");
-    File patchDir = new File(workspace, "patch");
-    File patchOutputDir = new File(workspace, "build");
-    String mvn = "C:\\programs\\apache-maven-3.3.9\\bin\\mvn.cmd";
+
+    String svn = config.get("svn.url");
     SVNURL repositoryURL = null;
     try {
       repositoryURL = SVNURL.parseURIEncoded(svn);
@@ -71,166 +71,176 @@ public class PatchBuilder {
       LOGGER.error("", e);
       System.exit(1);
     }
-    String name = pp.get("svn.username");
-    String password = pp.get("svn.password");
+    String name = config.get("svn.username");
+    String password = config.get("svn.password");
     SVNClientManager ourClientManager = SVNUtils.create(name, password);
-//    long export = SVNUtils.export(ourClientManager, repositoryURL, SVNRevision.parse(revisionEnd), allCodeDir);
-//    System.out.println("export = " + export);
+    /* show the head version */
+    SVNUtils.showInfo(ourClientManager, repositoryURL, SVNRevision.HEAD, SVNRevision.HEAD, true);
 
-//    System.out.println("export patch:");
-//    SVNChangedFiles svnChangedFiles = new SVNChangedFiles(svn, name, password,
-//        Long.valueOf(revisionStart), Long.valueOf(revisionEnd), patchDir);
-//    svnChangedFiles.export();
+    String revisionStart = prompt("revision from");
+    String revisionEnd = prompt("revision to");
+    /* create directories*/
+    WorkspaceCreator workspaceCreator = new WorkspaceCreator().invoke();
+    File allCodeDir = workspaceCreator.getAllCodeDir();
+    File patchDir = workspaceCreator.getPatchDir();
+    File patchOutputDir = workspaceCreator.getPatchOutputDir();
 
-//    System.out.println("call maven:");
-//    String s = Shell.execCommand(mvn, "-f", new File(allCodeDir, "pom.xml").getAbsolutePath(), "clean", "compile");
-//    System.out.println(s);
-//    s = Shell.execCommand(mvn, "-f", new File(allCodeDir, "pom.xml").getAbsolutePath(), "dependency:copy-dependencies", "-DoutputDirectory=target/lib");
-//    System.out.println(s);
-    boolean isWebApp = true;
-    File outputClassesDir, outputResourcesDir;
+    /* export files from svn. */
+    doSvnExport(repositoryURL, ourClientManager, revisionEnd, allCodeDir);
+    /* maven compile all codes for patch classpath */
+    doMaven(config, allCodeDir);
+
+    /* export change files */
+    doChangeFilesExport(svn, name, password, revisionStart, revisionEnd, patchDir, patchOutputDir);
+    /* compile patch */
+    doCompilePatch(allCodeDir, patchDir, patchOutputDir);
+    /* copy resources */
+    doCopyResources(patchDir, patchOutputDir);
+    /* copy webapp */
+    doCopyWebapp(patchDir, patchOutputDir);
+
+  }
+
+  private static void doChangeFilesExport(String svn, String name, String password, String revisionStart, String revisionEnd, File patchDir, File patchOutputDir) {
+    new SvnExportChangeFilesTask(svn, name, password, revisionStart, revisionEnd, patchDir)
+        .exec();
+    /* copy remove script */
+    File file1 = new File(patchDir, "removes.sh");
+    File file2 = new File(patchDir, "removes.bat");
+    if (file1.exists()) {
+      file1.renameTo(new File(patchOutputDir, file1.getName()));
+    }
+    if (file2.exists()) {
+      file2.renameTo(new File(patchOutputDir, file2.getName()));
+    }
+  }
+
+  private static void doSvnExport(SVNURL repositoryURL,
+                                  SVNClientManager ourClientManager,
+                                  String revisionEnd,
+                                  File allCodeDir) throws SVNException {
+    ApplicationConfig config = ApplicationConfig.getInstance();
+    boolean isSkipExport = config.getBoolean("svn.skip.export-all-code", false);
+    if (!isSkipExport) {
+      new SvnExportTask(ourClientManager, repositoryURL, revisionEnd, allCodeDir).exec();
+    }
+  }
+
+  private static void doCopyWebapp(File patchDir, File patchOutputDir) throws IOException {
+    ApplicationConfig config = ApplicationConfig.getInstance();
+    boolean isWebApp = config.getBoolean("isWebApp", true);
+    if (isWebApp) {
+      LOGGER.info("process static files for web");
+      File webapp = new File(patchDir, config.get("webapp.path", "src/main/webapp"));
+      Files.copyDir(webapp, patchOutputDir);
+    }
+  }
+
+  private static void doMaven(ApplicationConfig config, File allCodeDir) throws IOException {
+    String pom = new File(allCodeDir, "pom.xml").getAbsolutePath();
+    String mvn = config.get("mvn", "mvn");
+    new MvnTask(mvn, pom).exec();
+  }
+
+  private static void doCopyResources(File patchDir, File patchOutputDir) throws IOException {
+    ApplicationConfig config = ApplicationConfig.getInstance();
+    boolean isWebApp = config.getBoolean("isWebApp", true);
+    File outputResourcesDir;
+    if (isWebApp) {
+      outputResourcesDir = new File(patchOutputDir, "WEB-INF/classes");
+      if (!outputResourcesDir.exists() && !outputResourcesDir.isDirectory()) {
+        outputResourcesDir.mkdirs();
+      }
+    } else {
+      outputResourcesDir = new File(patchOutputDir, "conf");
+    }
+
+    String pathes = config.get("resources.path", "src/main/resources");
+    String[] split = pathes.split(":");
+    File[] files = new File[split.length];
+    for (int i = 0; i < files.length; i++) {
+      files[i] = new File(patchDir, split[i]);
+    }
+    new CopyTask(outputResourcesDir, files).exec();
+  }
+
+  private static void doCompilePatch(File allCodeDir, File patchDir, File patchOutputDir) throws IOException {
+    ApplicationConfig config = ApplicationConfig.getInstance();
+    boolean isWebApp = config.getBoolean("isWebApp", true);
+    File outputClassesDir;
     if (isWebApp) {
       outputClassesDir = new File(patchOutputDir, "WEB-INF/classes");
       if (!outputClassesDir.exists() && !outputClassesDir.isDirectory()) {
         outputClassesDir.mkdirs();
       }
-      outputResourcesDir = outputClassesDir;
     } else {
       outputClassesDir = new File(patchOutputDir, "classes");
       if (!outputClassesDir.exists() && !outputClassesDir.isDirectory()) {
         outputClassesDir.mkdirs();
       }
-      outputResourcesDir = new File(patchDir, "conf");
     }
-    compilePatch(allCodeDir, patchDir, outputClassesDir);
-    // process resources
-    processResources(patchDir, outputResourcesDir);
-    if (isWebApp) {
-      LOGGER.info("process static files for web");
-      File webapp = new File(patchDir, "src/main/webapp");
-      Files.copyDir(webapp, patchOutputDir);
-    }
+    new CompilePatchTask(patchDir, outputClassesDir, allCodeDir).exec();
   }
 
-  private static void processResources(File patchDir, File outputDir) throws IOException {
-    File resDir = new File(patchDir, "src/main/resources");
-    List<String> files = makeResListFile(resDir);
-    if (!files.isEmpty()) {
-      LOGGER.info("going to copy " + files.size() + " to " + outputDir);
-      for (String file : files) {
-        Files.copy(new File(resDir, file), new File(outputDir, file));
-      }
-    }
-  }
-
-  private static void compilePatch(File allCodeDir, File patchDir, File outputClassesDir) throws IOException {
-    LOGGER.info("compile patch:");
-    File patchSrcDir = new File(patchDir, "src/main/java");
-    List<String> files = makeSrcListFile(patchSrcDir);
-    LOGGER.info("going to compile " + files.size() + " to " + outputClassesDir.getAbsolutePath());
-    File tmpFile = File.createTempFile("src-", ".list");
-    tmpFile.deleteOnExit();
-    Files.write(tmpFile, join("\n", files));
-    LOGGER.debug("write source files list to " + tmpFile);
-    LOGGER.info("going to compile files: \n" + join(File.pathSeparator, files));
-    String compiler = pp.get("javac");;
-    String[] cmd = Lang.array(compiler,
-        "-cp", join(File.pathSeparator,
-            new File(allCodeDir, "target/lib/*").getAbsolutePath(),
-            new File(allCodeDir, "target/classes").getAbsolutePath(),
-            new File(allCodeDir, "src/main/webapp/WEB-INF/lib/*").getAbsolutePath()),
-        "-sourcepath", patchSrcDir.getAbsolutePath(),
-        "-s", patchSrcDir.getAbsolutePath(),
-        "-d", outputClassesDir.getAbsolutePath(),
-        "-encoding", "UTF-8",
-        "-source", "1.8",
-        "-target", "1.8",
-        "@" + tmpFile);
-    if (LOGGER.isDebugEnabled()) {
-      LOGGER.debug("cmd = " + join(" ", cmd));
-    }
-    Shell.ShellCommandExecutor shellCommandExecutor = new Shell.ShellCommandExecutor(cmd, patchSrcDir);
-    shellCommandExecutor.execute();
-    int exitCode = shellCommandExecutor.getExitCode();
-    String compileResult = shellCommandExecutor.getOutput();
-    LOGGER.info("CompileResult {exitCode: " + exitCode + ", message:" + compileResult + "}");
-  }
-
-  private static List<String> makeSrcListFile(File srcDir) throws IOException {
-    LinkedList<File> dirs = new LinkedList<>();
-    ArrayList<String> files = new ArrayList<>();
-    dirs.add(srcDir);
-    while (!dirs.isEmpty()) {
-      File dir = dirs.remove();
-      File[] sub = dir.listFiles();
-      if (sub != null && sub.length > 0) {
-        for (File f : sub) {
-          if (f.isFile()) {
-            files.add(f.getAbsolutePath().substring(srcDir.getAbsolutePath().length() + 1));
-          } else if (f.isDirectory()) {
-            if (f.getName().equals(".") || f.getName().equals("..")) {
-              continue;
-            }
-            dirs.add(f);
-          }
+  private static String prompt(String prompt) {
+    String result = null;
+    while (Strings.isBlank(result)) {
+      try {
+        result = JOptionPane.showInputDialog(null, prompt);
+      } catch (HeadlessException ex) {
+        Console console = System.console();
+        if (console != null) {
+          result = console.readLine(prompt);
+        } else {
+          System.out.printf("%s: ", prompt);
         }
       }
     }
 
-    return files;
+    return result;
   }
 
-  private static List<String> makeResListFile(File resDir) throws IOException {
-    LinkedList<File> dirs = new LinkedList<>();
-    ArrayList<String> files = new ArrayList<>();
-    dirs.add(resDir);
-    while (!dirs.isEmpty()) {
-      File dir = dirs.remove();
-      File[] sub = dir.listFiles();
-      if (sub != null && sub.length > 0) {
-        for (File f : sub) {
-          if (f.isFile()) {
-            if (!f.getName().endsWith(".java")) {
-              files.add(f.getAbsolutePath().substring(resDir.getAbsolutePath().length() + 1));
-            }
-          } else if (f.isDirectory()) {
-            if (f.getName().equals(".") || f.getName().equals("..")) {
-              continue;
-            }
-            dirs.add(f);
-          }
+  private static class WorkspaceCreator {
+    private File patchDir;
+    private File patchOutputDir;
+    private File allCodeDir;
+
+    public File getPatchDir() {
+      return patchDir;
+    }
+
+    public File getPatchOutputDir() {
+      return patchOutputDir;
+    }
+
+    public File getAllCodeDir() {
+      return allCodeDir;
+    }
+
+    public WorkspaceCreator invoke() {
+      ApplicationConfig config = ApplicationConfig.getInstance();
+      String workspace = config.get("svn.workspace");
+      patchDir = new File(workspace, "patch");
+      patchOutputDir = new File(workspace, "build");
+      allCodeDir = new File(workspace, "all-code");
+      String allCodePath = config.get("svn.export.all-code-path");
+      if (Strings.isNotBlank(allCodePath)) {
+        File file = new File(allCodePath);
+        if (file.isDirectory() && new File(file, "pom.xml").exists()) {
+          allCodeDir = file;
         }
       }
-
-    }
-    return files;
-  }
-
-
-  /**
-   * Concatenates strings, using a separator.
-   *
-   * @param separator to join with
-   * @param strings   to join
-   * @return the joined string
-   */
-  private static String join(CharSequence separator, String... strings) {
-    return join(separator, Arrays.asList(strings));
-  }
-
-  private static String join(CharSequence separator, Collection<String> collection) {
-    // Ideally we don't have to duplicate the code here if array is iterable.
-    StringBuilder sb = new StringBuilder();
-    boolean first = true;
-    for (String s : collection) {
-      if (first) {
-        first = false;
-      } else {
-        sb.append(separator);
+      if (!allCodeDir.exists()) {
+        allCodeDir.mkdirs();
       }
-      sb.append(s);
+      if (!patchDir.exists()) {
+        patchDir.mkdirs();
+      }
+      if (!patchOutputDir.exists()) {
+        patchOutputDir.mkdirs();
+      }
+      return this;
     }
-    return sb.toString();
   }
 }
 
