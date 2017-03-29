@@ -150,9 +150,8 @@ public class SVNChangedFiles {
 
   public ArrayList<SVNDiffStatus>[] list() {
     try {
-//      SVNDiffClient diffClient = new SVNDiffClient(this.authManager,
-//          SVNWCUtil.createDefaultOptions(true));
-
+      // SVNDiffClient diffClient = new SVNDiffClient(this.authManager,
+      //   SVNWCUtil.createDefaultOptions(true));
       SVNDiffClient diffClient = svnClientManager.getDiffClient();
 
       ArrayList<SVNDiffStatus> changes = new ArrayList<>();
