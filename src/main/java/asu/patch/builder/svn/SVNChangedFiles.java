@@ -3,12 +3,23 @@ package asu.patch.builder.svn;
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
-import java.util.*;
-import org.nutz.lang.Files;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import org.nutz.lang.Streams;
-import org.tmatesoft.svn.core.*;
+import org.tmatesoft.svn.core.SVNDepth;
+import org.tmatesoft.svn.core.SVNException;
+import org.tmatesoft.svn.core.SVNNodeKind;
+import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.auth.ISVNAuthenticationManager;
-import org.tmatesoft.svn.core.wc.*;
+import org.tmatesoft.svn.core.wc.ISVNDiffStatusHandler;
+import org.tmatesoft.svn.core.wc.SVNClientManager;
+import org.tmatesoft.svn.core.wc.SVNDiffClient;
+import org.tmatesoft.svn.core.wc.SVNDiffStatus;
+import org.tmatesoft.svn.core.wc.SVNRevision;
+import org.tmatesoft.svn.core.wc.SVNStatusType;
+import org.tmatesoft.svn.core.wc.SVNUpdateClient;
+import org.tmatesoft.svn.core.wc.SVNWCUtil;
 
 public class SVNChangedFiles {
   private final SVNClientManager svnClientManager;
@@ -20,6 +31,11 @@ public class SVNChangedFiles {
   private String destinationDirectory;
   private ISVNAuthenticationManager authManager;
 
+  public SVNChangedFiles(String branchURL, String username, String password,
+                         long startingRevision, long endingRevision, File destinationDirectory) {
+    this(branchURL, username, password, startingRevision, endingRevision,
+        destinationDirectory.getAbsolutePath());
+  }
   public SVNChangedFiles(String branchURL, String username, String password,
                          long startingRevision, long endingRevision, String destinationDirectory) {
     try {

@@ -51,7 +51,7 @@ public class CompilerDemo {
   }
 
   /**
-   * 这个方法利用了 StandardJavaFileManager类的优点。
+   * 这个方法利用了 StandardJavaFileManager类的优点.
    * 这个文件管理器提供了一种方法来完成普通文件的输入输出工作。
    * 同时在一个 DiagnosticListener实例的帮助下报告编译的诊断信息。
    * 后面将要用到的DiagnosticCollector类只是前面那个 listener的一个实现。
