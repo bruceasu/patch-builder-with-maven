@@ -20,14 +20,26 @@
             <fileMode>0664</fileMode>
         </file>
         <file>
-            <source>${project.basedir}/assembly/winutils.exe</source>
+            <source>${project.basedir}/assembly/bin/winutils.exe</source>
             <outputDirectory>bin/</outputDirectory>
-            <fileMode>0744</fileMode>
+            <fileMode>0644</fileMode>
+            <filtered>true</filtered>
+        </file>
+        <file>
+            <source>${project.basedir}/assembly/bin/run.bat</source>
+            <outputDirectory>bin/</outputDirectory>
+            <fileMode>0644</fileMode>
+            <filtered>true</filtered>
+        </file>
+        <file>
+            <source>${project.basedir}/assembly/bin/run.sh</source>
+            <outputDirectory>bin/</outputDirectory>
+            <fileMode>0755</fileMode>
             <filtered>true</filtered>
         </file>
         <file>
             <source>${project.basedir}/docs/change_log.txt</source>
-            <outputDirectory>/</outputDirectory>
+            <outputDirectory>docs/</outputDirectory>
             <fileMode>0644</fileMode>
             <filtered>true</filtered>
         </file>
