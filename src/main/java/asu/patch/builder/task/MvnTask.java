@@ -60,11 +60,14 @@ public class MvnTask {
     cmds.add(pom);
     cmds.add("clean");
     cmds.add("compile");
+    if (LOGGER.isDebugEnabled()) {
+      LOGGER.debug("execute mvn: " + cmds);
+    }
     String s = Shell.execCommand(cmds.toArray(new String[0]));
     LOGGER.info(s);
     LOGGER.info("export the dependencies jars...");
     s = Shell.execCommand(mvn, "-f", pom, "dependency:copy-dependencies",
         "-DoutputDirectory=target/lib");
-    LOGGER.info(s);
+    LOGGER.info(new String(s.getBytes("UTF-8"), "GBK"));
   }
 }

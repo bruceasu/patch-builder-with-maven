@@ -22,21 +22,19 @@
 
 package asu.patch.builder;
 
-import static asu.patch.builder.util.Strings.join;
-
 import asu.patch.builder.svn.SVNUtils;
-import asu.patch.builder.task.*;
-import asu.patch.builder.util.Shell;
+import asu.patch.builder.task.CompilePatchTask;
+import asu.patch.builder.task.CopyTask;
+import asu.patch.builder.task.MvnTask;
+import asu.patch.builder.task.SvnExportChangeFilesTask;
+import asu.patch.builder.task.SvnExportTask;
+import asu.patch.builder.task.TreeTask;
 import java.awt.*;
 import java.io.Console;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
 import javax.swing.*;
 import org.nutz.lang.Files;
-import org.nutz.lang.Lang;
 import org.nutz.lang.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,7 +73,7 @@ public class PatchBuilder {
     String password = config.get("svn.password");
     SVNClientManager ourClientManager = SVNUtils.create(name, password);
     /* show the head version */
-    SVNUtils.showInfo(ourClientManager, repositoryURL, SVNRevision.HEAD, SVNRevision.HEAD, true);
+    SVNUtils.showInfo(ourClientManager, repositoryURL, SVNRevision.HEAD, SVNRevision.HEAD, false);
 
     String revisionStart = prompt("revision from");
     String revisionEnd = prompt("revision to");
@@ -89,7 +87,6 @@ public class PatchBuilder {
     doSvnExport(repositoryURL, ourClientManager, revisionEnd, allCodeDir);
     /* maven compile all codes for patch classpath */
     doMaven(config, allCodeDir);
-
     /* export change files */
     doChangeFilesExport(svn, name, password, revisionStart, revisionEnd, patchDir, patchOutputDir);
     /* compile patch */
@@ -99,6 +96,8 @@ public class PatchBuilder {
     /* copy webapp */
     doCopyWebapp(patchDir, patchOutputDir);
 
+    String tree = new TreeTask(patchOutputDir.getAbsolutePath()).exec();
+    Files.write(new File(patchOutputDir, "tree.txt"), tree);
   }
 
   private static void doChangeFilesExport(String svn, String name, String password, String revisionStart, String revisionEnd, File patchDir, File patchOutputDir) {
@@ -139,7 +138,13 @@ public class PatchBuilder {
   private static void doMaven(ApplicationConfig config, File allCodeDir) throws IOException {
     String pom = new File(allCodeDir, "pom.xml").getAbsolutePath();
     String mvn = config.get("mvn", "mvn");
-    new MvnTask(mvn, pom).exec();
+    String args = config.get("mvn.args");
+    if (Strings.isBlank(args)) {
+      new MvnTask(mvn, pom).exec();
+    } else {
+      String[] split = args.split("\\s+");
+      new MvnTask(mvn, pom, split).exec();
+    }
   }
 
   private static void doCopyResources(File patchDir, File patchOutputDir) throws IOException {
