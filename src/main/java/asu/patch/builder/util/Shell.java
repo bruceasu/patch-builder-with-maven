@@ -539,12 +539,17 @@ abstract public class Shell {
       //One time scheduling.
       timeOutTimer.schedule(timeoutTimerTask, timeOutInterval);
     }
+//    CodepageDetectorProxy cpDetector = CodepageDetectorProxy.getInstance();
+//    BufferedInputStream inInputStream = new BufferedInputStream(process.getInputStream());
+//    BufferedInputStream errInputStream = new BufferedInputStream(process.getErrorStream());
+
+//    Charset inCharset = cpDetector.detectCodepage(inInputStream, 1000);
+//    Charset errCharset = cpDetector.detectCodepage(errInputStream, 1000);
+    String charset = System.getProperty("sun.jnu.encoding", Charset.defaultCharset().name());
     final BufferedReader errReader =
-        new BufferedReader(new InputStreamReader(
-            process.getErrorStream(), Charset.defaultCharset()));
+        new BufferedReader(new InputStreamReader(process.getErrorStream(), charset));
     BufferedReader inReader =
-        new BufferedReader(new InputStreamReader(
-            process.getInputStream(), Charset.defaultCharset()));
+        new BufferedReader(new InputStreamReader(process.getInputStream(), charset));
     final StringBuffer errMsg = new StringBuffer();
 
     // read error and input streams as this would free up the buffers

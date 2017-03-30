@@ -64,7 +64,8 @@ public class CompilePatchTask {
     tmpFile.deleteOnExit();
     Files.write(tmpFile, join("\n", files));
     LOGGER.debug("write source files list to " + tmpFile);
-    LOGGER.info("going to compile files: \n" + join(File.pathSeparator, files));
+    LOGGER.info("going to compile files: \n"
+        + join(System.getProperty("line.separator", "\n"), files));
     String compiler = config.get("javac");
     List<String> classpath = new ArrayList<>();
     String cl = config.get("compile.classpath");
