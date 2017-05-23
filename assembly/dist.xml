@@ -23,25 +23,31 @@
             <source>${project.basedir}/assembly/bin/winutils.exe</source>
             <outputDirectory>bin/</outputDirectory>
             <fileMode>0644</fileMode>
+            <filtered>false</filtered>
+        </file>
+		<file>
+            <source>${project.basedir}/assembly/bin/run.exe</source>
+            <outputDirectory>/</outputDirectory>
+            <fileMode>0644</fileMode>
             <filtered>true</filtered>
         </file>
         <file>
             <source>${project.basedir}/assembly/bin/run.bat</source>
             <outputDirectory>bin/</outputDirectory>
             <fileMode>0644</fileMode>
-            <filtered>true</filtered>
+            <filtered>false</filtered>
         </file>
         <file>
             <source>${project.basedir}/assembly/bin/run.sh</source>
             <outputDirectory>bin/</outputDirectory>
             <fileMode>0755</fileMode>
-            <filtered>true</filtered>
+            <filtered>false</filtered>
         </file>
         <file>
             <source>${project.basedir}/docs/change_log.txt</source>
             <outputDirectory>docs/</outputDirectory>
             <fileMode>0644</fileMode>
-            <filtered>true</filtered>
+            <filtered>false</filtered>
         </file>
         <!--<file>-->
             <!--<source>${project.build.directory}/classes/log4j.properties</source>-->
